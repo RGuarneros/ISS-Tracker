@@ -1,0 +1,13 @@
+---
+version: "3"
+
+services:
+    flask-app:
+        build:
+            context: ./
+            dockerfile: ./Dockerfile
+        image: username/flask-iss_tracker:1.0
+        container_name: flask-iss_tracker-app
+        ports:
+            - "5000:5000"
+...
