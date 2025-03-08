@@ -431,12 +431,15 @@ You can double-check that it in fact removed your running container by running `
 ## Resources 
 
 * Logging Documentation: https://docs.python.org/3/howto/logging.html
-* Requests Library: https://pypi.org/project/requests/ 
-* Finding Average of List: https://www.geeksforgeeks.org/find-average-list-python/ 
+* Requests Library: https://pypi.org/project/requests/
+https://www.geeksforgeeks.org/head-method-python-requests/ 
+* Requests Library Head: * Finding Average of List: https://www.geeksforgeeks.org/find-average-list-python/ 
 * pow() Function: https://www.w3schools.com/python/ref_math_pow.asp 
 * ISS Trajectory Data: https://spotthestation.nasa.gov/trajectory_data.cfm 
 * COE 332 Spring 2025 Docs: https://coe-332-sp25.readthedocs.io/en/latest/ 
 * Table Syntax for README: https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/organizing-information-with-tables 
+* time library - https://www.geeksforgeeks.org/python-time-module/ 
+
 
 ## AI Usage
 AI (ChatGPT) was mainly used for debugging the code. Sometimes, my syntax would be wrong and I used AI to help me identify it. Most of the built-in functions used in the scripts were found by reading the documentation cited in [Resources](README#resources). 
