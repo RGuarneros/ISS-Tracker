@@ -14,6 +14,7 @@ import threading
 from astropy import coordinates
 from astropy import units
 from astropy.time import Time
+from geopy.geocoders import Nominatim 
 
 # Parsing Arguments
 parser = argparse.ArgumentParser()
@@ -121,7 +122,7 @@ def get_epoch(epoch):
         result (dict): Returns the dictionary with the epoch value you specified. 
     """
     try: 
-        specific_epoch = json.loads(rd.get(epoch).decode('utf-8'))
+        specific_epoch = json.loads(rd.get(epoch).decode('utf-8')) # returns dictionary 
         return specific_epoch
     except AttributeError as e:
         return {"error": f"Epoch '{epoch}' not found"}, 404 # AI used to return 404 error 
@@ -151,26 +152,33 @@ def get_epoch_speed(epoch):
     speed = m.sqrt(m.pow(x_dot,2)+m.pow(y_dot,2)+m.pow(z_dot,2)) 
     return {'speed':str(speed), 'units':' km/s'} 
 
-# @app.route('/epochs/<epoch>/location', methods=['GET']) 
-# def get_epoch_location(epoch):
-#     specific_epoch = json.loads(rd.get(epoch).decode('utf-8'))
+@app.route('/epochs/<epoch>/location', methods=['GET']) 
+def get_epoch_location(epoch):  
+    epoch_data = get_epoch(epoch)
+    if type(epoch_data)!=dict:  
+        return epoch_data
+    vals = compute_location(epoch_data)
+    geocoder = Nominatim(user_agent='iss_tracker')
+    geoloc = geocoder.reverse((vals[0], vals[1]), exactly_one=True, language='en', zoom=18)
+    if not geoloc:
+        geoloc = 'Above a sea, no address available.'
+    return {'latitude':vals[0], 'longitude':vals[1], 'altitude':vals[2], 'geoposition':str(geoloc)}
 
-#     return {'latitude':lat, 'longitude':lon, 'altitude':alt, 'geoposition':geo_pos}
+def compute_location(epoch_dict):
+    if type(epoch_dict)==dict:
+        x = float(epoch_dict['X']['#text'])
+        y = float(epoch_dict['Y']['#text'])
+        z = float(epoch_dict['Z']['#text'])
+    else: 
+        return {"error": f"Epoch '{epoch_dict}' not found"}, 404
+    # assumes epoch is in format '2024-067T08:28:00.000Z'
+    this_epoch=time.strftime('%Y-%m-%d %H:%M:%S', time.strptime(epoch_dict['EPOCH'][:-5], '%Y-%jT%H:%M:%S'))
+    cartrep = coordinates.CartesianRepresentation([x, y, z], unit=units.km)
+    gcrs = coordinates.GCRS(cartrep, obstime=this_epoch) 
+    itrs = gcrs.transform_to(coordinates.ITRS(obstime=this_epoch))
+    loc = coordinates.EarthLocation(*itrs.cartesian.xyz) 
 
-# def compute_location(epoch):
-#     x = float(epoch['X']['#text'])
-#     y = float(epoch['Y']['#text'])
-#     z = float(epoch['Z']['#text'])
-
-#     # assumes epoch is in format '2024-067T08:28:00.000Z'
-#     this_epoch=time.strftime('%Y-%m-%d %H:%m:%S', time.strptime(sv['EPOCH'][:-5], '%Y-%jT%H:%M:%S'))
-
-#     cartrep = coordinates.CartesianRepresentation([x, y, z], unit=units.km)
-#     gcrs = coordinates.GCRS(cartrep, obstime=this_epoch)
-#     itrs = gcrs.transform_to(coordinates.ITRS(obstime=this_epoch))
-#     loc = coordinates.EarthLocation(*itrs.cartesian.xyz)
-
-#     return loc.lat.value, loc.lon.value, loc.height.value
+    return [loc.lat.value, loc.lon.value, loc.height.value]
 
 @app.route('/now', methods=['GET'])
 def now_speed(): 
