@@ -11,9 +11,8 @@ from flask import Flask, request
 import json
 import redis
 import threading
-from astropy import coordinates
-from astropy import units
-from astropy.time import Time
+from astropy import coordinates 
+from astropy import units 
 from geopy.geocoders import Nominatim 
 
 # Parsing Arguments
@@ -108,7 +107,7 @@ def get_epochs(): # gets data from url
         data.append(json.loads(rd.get(epoch).decode('utf-8')))
     return data
 
-@app.route('/epochs/<epoch>', methods=['GET']) # make a case where epoch is nonexistent
+@app.route('/epochs/<epoch>', methods=['GET']) 
 def get_epoch(epoch):
     """
     This route uses the GET method to retrieve a certain epoch and its 
@@ -160,11 +159,14 @@ def get_epoch_location(epoch):
     vals = compute_location(epoch_data)
     geocoder = Nominatim(user_agent='iss_tracker')
     geoloc = geocoder.reverse((vals[0], vals[1]), exactly_one=True, language='en', zoom=18)
-    if not geoloc:
-        geoloc = 'Above a sea, no address available.'
-    return {'latitude':vals[0], 'longitude':vals[1], 'altitude':vals[2], 'geoposition':str(geoloc)}
+    # AI was used to clean up output 
+    geoposition = geoloc.address.encode('ascii', 'ignore').decode() if geoloc else 'Above a sea, no address available.'
+    if not geoloc: 
+        geoposition = 'Above a sea, no address available.' 
+    return {'latitude':vals[0], 'longitude':vals[1], 'altitude':vals[2], 
+            'geoposition':geoposition.strip(" -,"), 'epoch_timestamp':vals[3]} 
 
-def compute_location(epoch_dict):
+def compute_location(epoch_dict): 
     if type(epoch_dict)==dict:
         x = float(epoch_dict['X']['#text'])
         y = float(epoch_dict['Y']['#text'])
@@ -177,8 +179,7 @@ def compute_location(epoch_dict):
     gcrs = coordinates.GCRS(cartrep, obstime=this_epoch) 
     itrs = gcrs.transform_to(coordinates.ITRS(obstime=this_epoch))
     loc = coordinates.EarthLocation(*itrs.cartesian.xyz) 
-
-    return [loc.lat.value, loc.lon.value, loc.height.value]
+    return [loc.lat.value, loc.lon.value, loc.height.value, this_epoch]
 
 @app.route('/now', methods=['GET'])
 def now_speed(): 
@@ -195,14 +196,13 @@ def now_speed():
                        speed. 
     """
 
-    keys = [key.decode('utf-8') for key in rd.keys() if key.decode('utf-8') != "Last-Modified"]
-    now_epoch_label = now_epoch(keys)
-    speed = get_epoch_speed(now_epoch_label)
-    speed_val = speed["speed"]
-    now_dict = json.loads(rd.get(now_epoch_label).decode('utf-8'))
-    now_dict["speed"] = speed_val 
-    now_dict["units"] = "km/s"
-    return now_dict 
+    keys = [key.decode('utf-8') for key in rd.keys() if key.decode('utf-8') != "Last-Modified"] 
+    now_epoch_label = now_epoch(keys) 
+    speed = get_epoch_speed(now_epoch_label) 
+    loc = get_epoch_location(now_epoch_label) 
+    loc["speed"] = speed["speed"] + speed["units"] 
+    loc["now_timestamp"] = time.strftime("%Y-%m-%d %H:%M:%S",time.gmtime())
+    return loc 
 
 def now_epoch(list_of_keys: List[str]) -> str: 
     """
