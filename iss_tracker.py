@@ -25,17 +25,27 @@ args = parser.parse_args()
 format_str=f'[%(asctime)s {socket.gethostname()}] %(filename)s:%(funcName)s:%(lineno)s - %(levelname)s: %(message)s'
 logging.basicConfig(level=args.loglevel, format=format_str)
 
+# Starting database 
 rd=redis.Redis(host='redis-db', port=6379, db=0) 
 
 app = Flask(__name__) 
-
+ 
 def fetch_latest_iss_data():
-    """Fetches the latest ISS ephemeris data and updates only if new data is available."""
-    # if redis database empty then request data and write it to database
-    # check number of keys if empty it will return 0 
+    """
+    This function fetches the latest ISS ephemeris data and updates 
+    only if new data is available. Writes the most up to date data 
+    to a redis database. 
+
+    Args: 
+        NONE 
+
+    Returns: 
+        NONE 
+    """ 
     response_head = requests.head(url='https://nasa-public-data.s3.amazonaws.com/iss-coords/current/ISS_OEM/ISS.OEM_J2K_EPH.xml')
     header_time = response_head.headers['Last-Modified']
-    # if header time is not the same then request new data
+    # if header time is not the same or if number of keys 
+    # is 0 (empty database) then request new data
     if len(rd.keys())==0 or rd.get('Last-Modified').decode('utf-8') != header_time: # order matters since an empty list cannot have a Last-modified time
         logging.debug('Data was not the same, initializing update.')
         data = get_iss_data() 
@@ -46,11 +56,21 @@ def fetch_latest_iss_data():
             rd.set(str(item['EPOCH']),json.dumps(item)) # redis saves it in random order 
         logging.info('Data has been updated.')
     else:
-        logging.debug('Data was the same.')
-    # once the container is running, if it keeps running then check header every 24 hours
-    # this will ensure you have most up to date data 
+        logging.debug('Data was the same.') 
 
-def get_iss_data():
+def get_iss_data() -> tuple:
+    """
+    This function gets the ISS state vectors at different epochs from Spot 
+    The Station website using the requests library. 
+
+    Args: 
+        NONE 
+
+    Returns: 
+        return (tuple): Returns a tuple with the first entry being the last
+                        modified date as a string and the second entry being 
+                        a list of dictionaries of the ISS state vectors. 
+    """ 
     # Getting data from NASA's Website using the requests library 
     try: 
         response = requests.get(url='https://nasa-public-data.s3.amazonaws.com/iss-coords/current/ISS_OEM/ISS.OEM_J2K_EPH.xml') 
@@ -69,6 +89,17 @@ def get_iss_data():
 
 # AI used to create background updater 
 def background_updater():
+    """
+    This function starts an infinite loop where you fetch the latest 
+    ISS data every 24 hours. 
+
+    Args: 
+        NONE 
+
+    Returns: 
+        NONE 
+    """ 
+    # once the container is running, if it keeps running then check header every 24 hours
     while True: # infinite loop to keep updating 
         fetch_latest_iss_data()
         logging.info('Sleeping for 24 hours before next check...')
@@ -79,17 +110,21 @@ threading.Thread(target=background_updater, daemon=True).start()
 
 
 @app.route('/epochs', methods=['GET'])
-def get_epochs(): # gets data from url 
+def get_epochs() -> List[dict]: # gets data from url 
     """
-    This route uses the GET method to retrieve the entire data set. 
-    It also allows query parameters to return a modified list of Epochs 
-    according to the limit and offset values given. 
+    This route uses the GET method to retrieve the entire data set from 
+    the redis database. It also allows query parameters to return a 
+    modified list of Epochs according to the limit and offset values given. 
 
     Args: 
         NONE 
 
+    Optional Args:
+        limit (int): Defines how many entries you want to retrieve. 
+        offset (int): Defines what the offset for retrieving data is. 
+
     Returns: 
-        result (list): Returns the list of dictionaries according to 
+        data (list): Returns the list of dictionaries according to 
                        some limit and offset values.
     """ 
     limit = request.args.get('limit',len(rd.keys())-1) # default is whole database without header
@@ -108,17 +143,18 @@ def get_epochs(): # gets data from url
     return data
 
 @app.route('/epochs/<epoch>', methods=['GET']) 
-def get_epoch(epoch):
+def get_epoch(epoch: str) -> dict:
     """
     This route uses the GET method to retrieve a certain epoch and its 
-    state vectors from the data set. 
+    state vectors from the redis database. 
 
     Args: 
         epoch (string): A string specifying the value of the epoch you 
                         want to extract. 
 
     Returns: 
-        result (dict): Returns the dictionary with the epoch value you specified. 
+        specific_epoch (dict): Returns the dictionary with the epoch value
+                               you specified. 
     """
     try: 
         specific_epoch = json.loads(rd.get(epoch).decode('utf-8')) # returns dictionary 
@@ -127,18 +163,19 @@ def get_epoch(epoch):
         return {"error": f"Epoch '{epoch}' not found"}, 404 # AI used to return 404 error 
 
 @app.route('/epochs/<epoch>/speed', methods=['GET']) 
-def get_epoch_speed(epoch):
+def get_epoch_speed(epoch: str) -> dict: 
     """
-    This route uses the GET method to retrieve a certain epoch and calculate 
-    the cartesian speed of that epoch using its state vectors. 
+    This route uses the GET method to retrieve a certain epoch from the 
+    redis database and calculate the cartesian speed of that epoch using 
+    its state vectors. 
 
     Args: 
         epoch (string): A string specifying the value of the epoch you 
                         want to calculate the speed of. 
 
     Returns: 
-        result (str): Returns a string representing the speed of the epoch 
-                      you specified.  
+        result (dict): Returns a dictionary with two entries representing 
+                       the speed of the epoch you specified and its units. 
     """
     specific_epoch = get_epoch(epoch)
     if isinstance(specific_epoch, tuple) and specific_epoch[1]==404: # AI used to implement more checks
@@ -152,7 +189,22 @@ def get_epoch_speed(epoch):
     return {'speed':str(speed), 'units':' km/s'} 
 
 @app.route('/epochs/<epoch>/location', methods=['GET']) 
-def get_epoch_location(epoch):  
+def get_epoch_location(epoch: str) -> dict: 
+    """
+    This route uses the GET method to retrieve a certain epoch from the 
+    redis database and calculate the location of that epoch using 
+    its state vectors. It uses the geopy library to calculate the latitude, 
+    longitude, altitude, and geoposition of the ISS at a certain epoch. 
+
+    Args: 
+        epoch (string): A string specifying the value of the epoch you 
+                        want to calculate the position of. 
+
+    Returns: 
+        result (dict): Returns a dictionary with five entries representing 
+                       the latitude, longitude, altitude, geoposition, 
+                       and timestamp in GMT of the epoch you specified. 
+    """
     epoch_data = get_epoch(epoch)
     if type(epoch_data)!=dict:  
         return epoch_data
@@ -166,7 +218,18 @@ def get_epoch_location(epoch):
     return {'latitude':vals[0], 'longitude':vals[1], 'altitude':vals[2], 
             'geoposition':geoposition.strip(" -,"), 'epoch_timestamp':vals[3]} 
 
-def compute_location(epoch_dict): 
+def compute_location(epoch_dict: dict) -> tuple: 
+    """
+    This function calculates the latitude, longitude, and altitude from 
+    state vectors in cartesian coordinates using the geopy library. 
+
+    Args: 
+        epoch_dict (dict): A dictionary with x, y, and z state vectors. 
+
+    Returns: 
+        result (tuple): Returns a tuple with the values for latitude, longitude
+                        altitude, and the epoch in GMT. 
+    """
     if type(epoch_dict)==dict:
         x = float(epoch_dict['X']['#text'])
         y = float(epoch_dict['Y']['#text'])
@@ -182,18 +245,19 @@ def compute_location(epoch_dict):
     return [loc.lat.value, loc.lon.value, loc.height.value, this_epoch]
 
 @app.route('/now', methods=['GET'])
-def now_speed(): 
+def now_speed() -> dict: 
     """
     This route uses the GET method to retrieve the epoch nearest to 
-    the current time and calculate the cartesian speed of that epoch.  
+    the current time and calculate the latitude, longitude, altitude, 
+    geoposition, and speed of that epoch.  
 
     Args: 
         NONE
 
     Returns: 
-        result (dict): Returns a dictionary of the closest epoch to the 
-                       current time, its state vectors and its calculated
-                       speed. 
+        loc (dict): Returns a dictionary of the closest epoch to the 
+                    current time in GMT, the current time in GMT, speed, 
+                    latitude, longitude, altitude, and geopositon. 
     """
 
     keys = [key.decode('utf-8') for key in rd.keys() if key.decode('utf-8') != "Last-Modified"] 
@@ -212,8 +276,6 @@ def now_epoch(list_of_keys: List[str]) -> str:
     Args: 
         list_of_dicts (list): A list of dictionaries, each dictionary 
                               should have the specified keys. 
-        epoch_key (string): A string representing the key for the epoch label
-                            (i.e. 'EPOCH') 
 
     Returns:
         closest_dict (dictionary): Returns the dictionary closest to "now". 
