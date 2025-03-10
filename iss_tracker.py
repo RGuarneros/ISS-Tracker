@@ -25,7 +25,7 @@ args = parser.parse_args()
 format_str=f'[%(asctime)s {socket.gethostname()}] %(filename)s:%(funcName)s:%(lineno)s - %(levelname)s: %(message)s'
 logging.basicConfig(level=args.loglevel, format=format_str)
 
-rd=redis.Redis(host='127.0.0.1', port=6379, db=0)
+rd=redis.Redis(host='redis-db', port=6379, db=0) 
 
 app = Flask(__name__) 
 
