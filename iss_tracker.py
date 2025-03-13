@@ -91,7 +91,7 @@ def get_iss_data() -> tuple:
 def background_updater():
     """
     This function starts an infinite loop where you fetch the latest 
-    ISS data every 24 hours. 
+    ISS data every 4 min. 
 
     Args: 
         NONE 
@@ -102,14 +102,14 @@ def background_updater():
     # once the container is running, if it keeps running then check header every 24 hours
     while True: # infinite loop to keep updating 
         fetch_latest_iss_data()
-        logging.info('Sleeping for 24 hours before next check...')
-        time.sleep(86400) 
+        logging.info('Sleeping for 4 min before next check...')
+        time.sleep(240) 
 
 # Start background updater in a separate thread --> AI used 
 threading.Thread(target=background_updater, daemon=True).start()
 
 
-@app.route('/epochs', methods=['GET'])
+@app.route('/epochs', methods=['GET']) 
 def get_epochs() -> List[dict]: # gets data from url 
     """
     This route uses the GET method to retrieve the entire data set from 
@@ -133,6 +133,7 @@ def get_epochs() -> List[dict]: # gets data from url
         limit = int(limit) 
         offset = int(offset) 
     except ValueError: 
+        logging.error("Invalid limit/offset parameter; limit/offset must be integers \n")
         return "Invalid limit/offset parameter; limit/offset must be integers \n" 
     keys = [key.decode('utf-8') for key in rd.keys() if key.decode('utf-8') != "Last-Modified"] # AI used to check for last modified entry
     keys.sort() # AI mentioned sort function
@@ -242,10 +243,10 @@ def compute_location(epoch_dict: dict) -> tuple:
     gcrs = coordinates.GCRS(cartrep, obstime=this_epoch) 
     itrs = gcrs.transform_to(coordinates.ITRS(obstime=this_epoch))
     loc = coordinates.EarthLocation(*itrs.cartesian.xyz) 
-    return [loc.lat.value, loc.lon.value, loc.height.value, this_epoch]
+    return [float(loc.lat.value), float(loc.lon.value), float(loc.height.value), this_epoch]
 
 @app.route('/now', methods=['GET'])
-def now_speed() -> dict: 
+def now_speed_loc() -> dict: 
     """
     This route uses the GET method to retrieve the epoch nearest to 
     the current time and calculate the latitude, longitude, altitude, 
@@ -270,36 +271,46 @@ def now_speed() -> dict:
 
 def now_epoch(list_of_keys: List[str]) -> str: 
     """
-    This function gets a list of dictionaries with a time stamp, state vectors
-    and velocities. It identifies the closest epoch to "now".
+    This function gets a list of epochs strings and identifies
+    the closest epoch to "now". 
 
     Args: 
-        list_of_dicts (list): A list of dictionaries, each dictionary 
-                              should have the specified keys. 
+        list_of_dicts (list): A list of strings, each string 
+                              represents an epoch. 
 
     Returns:
-        closest_dict (dictionary): Returns the dictionary closest to "now". 
+        closest_epoch (str): Returns the epoch closest to "now". 
     """  
 
     try: 
-        if not list_of_keys: logging.warning('Given list was empty')
+        if not list_of_keys: 
+            logging.warning(f'Given list was empty, returning {None}')
+            return list_of_keys
+        if type(list_of_keys) is not list and type(list_of_keys) is str:
+            logging.warning(f'Input was not a list, returning only entry provided')
+            return list_of_keys
         # current time
-        now_time = time.mktime(time.gmtime())
-        diff = m.inf
+        now_time = time.mktime(time.gmtime()) 
+        diff = m.inf 
 
         for epoch in list_of_keys:
-            # Calculating time
-            # used ChatGPT to fix 000Z to %fZ in striptime func
-            t = time.mktime(time.strptime(epoch, '%Y-%jT%H:%M:%S.%fZ')) 
-            if abs(now_time-t)<diff: 
-                closest_epoch = epoch
-                diff = abs(now_time-t)
+            try: 
+                # Calculating time
+                # used ChatGPT to fix 000Z to %fZ in striptime func
+                t = time.mktime(time.strptime(epoch, '%Y-%jT%H:%M:%S.%fZ')) 
+                if abs(now_time-t)<diff: 
+                    closest_epoch = epoch
+                    diff = abs(now_time-t)
+            except ValueError as e: 
+                logging.error(f'Invalid epoch format "{epoch}": {e}')
+                return None 
 
         return closest_epoch
-    except KeyError as e: 
-        logging.error(f'Dictionary key not found: {e}\n') 
     except IndexError as e:
-        logging.error(f'Index out of range: {e}\n')
+        logging.error(f'Index out of range: {e}\n') 
+    except TypeError as e:
+        logging.error(f'Missing input: {e}\n')
+        return None
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
