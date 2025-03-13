@@ -32,9 +32,9 @@ Here are the 5 routes metioned above and their syntax:
 | ----------------------------- | -------- | ---------------------------------------------------------------------------------- |
 | /epochs                       | GET      | Return entire data set                                                             |
 | /epochs?limit=int&offset=int  | GET      | Return modified list of Epochs given query parameters                              | 
-| /epochs/<epoch>               | GET      | Return state vectors for a specific Epoch from the data set                        | 
-| /epochs/<epoch>/speed         | GET      | Return instantaneous speed for a specific Epoch in the data set                    | 
-| /epochs/<epoch>/location      | GET      | Return latitude, longitude, altitude, and geoposition for a specific Epoch in the data set | 
+| /epochs/{epoch}               | GET      | Return state vectors for a specific Epoch from the data set                        | 
+| /epochs/{epoch}/speed         | GET      | Return instantaneous speed for a specific Epoch in the data set                    | 
+| /epochs/{epoch}/location      | GET      | Return latitude, longitude, altitude, and geoposition for a specific Epoch in the data set | 
 | /now                          | GET      | Return instantaneous speed, latitude, longitude, altitude, and geoposition for the Epoch that is nearest in time | 
 
 This project illustrates how to ingest data from a Web API using the ```requests``` library and saving this data to a redis database. It also helps facilitate the analysis of such data by using the four functions and five routes mentioned above. 
