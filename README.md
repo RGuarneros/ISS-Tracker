@@ -23,7 +23,7 @@ The iss_tracker script also contains four functions of the names:
 * get_iss_data - Gets the ISS state vectors at different epochs from Spot The Station website using the requests library. 
 * fetch_latest_iss_data - Fetches the latest ISS ephemeris data and updates redis database only if new data is available.  
 
-The main script also features a background process that calls the fetch_latest_iss_data function every 4 min to make sure you have the latest ISS data. This becomes useful when you have the container up and running for a long time (i.e. 36 hours), you do not have to restart your iss_tracker.py script, it will automatically look for the most up to date data. 
+The main script also features a background process that calls the fetch_latest_iss_data function every 6 hours to make sure you have the latest ISS data. This becomes useful when you have the container up and running for a long time (i.e. 36 hours), you do not have to restart your iss_tracker.py script, it will automatically look for the most up to date data. 
 
 
 Here are the 5 routes metioned above and their syntax: 
