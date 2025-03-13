@@ -1,4 +1,4 @@
-# Homework 5: Containerized Flask App - ISS Data Retrieval & Speed Calculator Routes
+# ISS Tracker: Containerized Flask App - Real Time ISS Geolocation Calculator & ISS Past and Future Position and Velocity Retrieval 
 
 ## Table of Contents
 1. [Description](README.md#description)
@@ -6,9 +6,10 @@
 2. [ISS Trajectory Data Set](README.md#iss-trajectory-data-set)
 2. [Getting Started](README.md#getting-started)
 3. [Building the Container](README.md#building-the-container)
-4. [Running Docker Container](README.md#running-containerized-scripts)
-5. [Clean Up](README.md#clean-up)
-6. [Alternative: Using Docker Compose](README.md#alternative-using-docker-compose)
+4. [Running Docker Container](README.md#running-docker-container)
+5. [Accessing Microservice](README.md#accessing-microservice) 
+6. [Running Test Script](README.md#running-test-script)
+7. [Clean Up](README.md#clean-up)
 9. [Resources](README.md#resources)
 10. [AI Usage](README.md#ai-usage)
 
@@ -448,3 +449,6 @@ AI (ChatGPT) was mainly used for debugging the code. Sometimes, my syntax would 
 ChatGPT was used to make my code more robust since I wanted it to 'spit' out a 404 error code when given a wrong epoch. It was also used to look for the 'Last-Modified' date in the redis database by iterating through the whole dataset. The sections where AI was used are commented appropriately in the code. 
 
 AI was also used to find a way to constantly fetch the latest ISS data. This was done by starting a background updater in a seperate thread. 
+
+## Author(s)
+[Richard Guarneros](https://github.com/RGuarneros)
