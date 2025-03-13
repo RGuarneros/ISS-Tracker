@@ -99,11 +99,11 @@ def background_updater():
     Returns: 
         NONE 
     """ 
-    # once the container is running, if it keeps running then check header every 24 hours
+    # once the container is running, if it keeps running then check header every 6 hours
     while True: # infinite loop to keep updating 
         fetch_latest_iss_data()
-        logging.info('Sleeping for 4 min before next check...')
-        time.sleep(240) 
+        logging.info('Sleeping for 6 hours before next check...')
+        time.sleep(21600) 
 
 # Start background updater in a separate thread --> AI used 
 threading.Thread(target=background_updater, daemon=True).start()
