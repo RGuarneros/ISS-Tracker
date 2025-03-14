@@ -44,9 +44,11 @@ This code is necessary when you want to constantly have the updated data to your
 ## Software Diagram
 ![Software Diagram](diagram.png "Software Diagram Flowchart") 
 
-This diagram shows the typical flow of data focused around the files of homework05. We can clearly see that the docker container pulls data from the NASA's ISS Trajectory Database using the requests library. The iss_tracker.py inside the docker container converts the xml response from the database into a json like list of dictionaries that we can analyze, illustrated by the data block. This is done outside any routes for a faster runtime. The get_data() function uses this variable called "data" to return that same data depending the query parameters. The function get_epoch() also uses this retrieved data to look for a specific epoch and returns the epoch and its state vectors as a dictionary. The get_epoch_speed() function uses the retrieved state vectors of a specified epoch to calculate the cartesian speed of that epoch. Finally, the now_speed() uses the previously defined now_epoch() and the get_epoch_speed() function to calculate the instantaneous speed of the nearest epoch to the current time. 
+This diagram shows the typical flow of data from the ISS dataset to the redis database and the flask app. We can clearly see that the docker container pulls data from the NASA's ISS Trajectory Database using the requests library. This data is written to the redis database using the rd.set() functionality. The redis database also continuously backs up the data to a local folder called data for persistence across container sessions. 
 
-The user is able to interact with the containerised flask application using the ```curl``` command. Running the illustrated routes using the ```curl localhost:5000``` and proper query parameters, it allows the user to call each each containerized function and analyze the ISS Trajectory Data. 
+The flask app features a set of functions which fetch data from the redis database using the rd.get() functionality. This is called upon when the user makes certain queries to the flask app. 
+
+The user is able to interact with the containerised flask application using the ```curl``` command. Running the illustrated routes using the ```curl localhost:5000``` and proper query parameters, it allows the user to call each each containerized function and analyze the ISS Trajectory Data. Take a look at the [Description](README.md#description) section for a more detailed breakdown of each function in the flask app. 
 
 ## ISS Trajectory Data Set 
 The [ISS Trajectory Data](https://spotthestation.nasa.gov/trajectory_data.cfm) provides the most current posted ephemeris available in .txt and .xml file format. Each file contains header lines with the ISS mass in kg, drag area in m2, and drag coefficient used in generating the ephemeris. The header also contains lines with details for the first and last ascending nodes within the ephemeris span. Following this is a listing of upcoming ISS translation maneuvers, called “reboosts,” and visiting vehicle launches, arrivals, and departures. 
@@ -81,45 +83,7 @@ IMPORTANT: Make sure to make a directory called ```data```. This will serve as t
 mkdir data 
 ```
 
-## Building the Container 
-
-To build the image from the provided Dockerfile run: 
-``` bash
-docker build -t username/flask-redis-iss_tracker:1.0 . 
-
-# Example
-docker build -t rguarneros065/flask-redis-iss_tracker:1.0 . 
-```
-Make sure to replace 'username' with your Docker Hub username. 
-
-To ensure you see a copy of your image that was built, run 
-``` bash 
-docker images 
-
-# Example Output
-REPOSITORY                              TAG       IMAGE ID       CREATED        SIZE
-rguarneros065/flask-redis-iss_tracker   1.0       79a42c298d51   11 hours ago   1.21GB
-...
-
-``` 
-
-You should see your username in the repository name. 
-
-## Running Docker Container
-Before using the  ```docker compose up``` verb, we have to make some small changes to our docker-compose.yml file. First, let's make sure that we don't have any container using port 5000 by running: 
-```bash
-docker ps -a
-
-# NO CONTAINERS LISTENING TO PORT 5000 EXAMPLE 
-CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
-```
-Under the PORTS section, no containers should be listening in to port 5000. If there are containers listening to port 5000 make sure to stop and remove them using the following commands: 
-```bash 
-docker stop <CONTAINER_ID> 
-
-docker rm <CONTAINER_ID> 
-``` 
-
+### Configure docker-compose.yml file
 Now we can proceed to configuring our docker-compose.yml file. 
 As you may have noticed, you have a [docker-compose.yml](docker-compose.yml) file. You will have to modify this to be able to run docker compose. 
 
@@ -152,6 +116,43 @@ services:
             - 5000:5000
 ```
 Please make sure to change 'username' to your actual docker username. 
+
+## Building the Container 
+
+To build the image run: 
+``` bash
+docker compose build
+
+```
+Make sure to replace 'username' with your Docker Hub username in the docker-compose.yml file. 
+
+To ensure you see a copy of your image that was built, run 
+``` bash 
+docker images 
+
+# Example Output
+REPOSITORY                              TAG       IMAGE ID       CREATED        SIZE
+rguarneros065/flask-redis-iss_tracker   1.0       79a42c298d51   11 hours ago   1.21GB
+...
+
+``` 
+
+You should see your username in the repository name. 
+
+## Running Docker Container
+First, let's make sure that we don't have any container using port 5000 by running: 
+```bash
+docker ps -a
+
+# NO CONTAINERS LISTENING TO PORT 5000 EXAMPLE 
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+```
+Under the PORTS section, no containers should be listening in to port 5000. If there are containers listening to port 5000 make sure to stop and remove them using the following commands: 
+```bash 
+docker stop <CONTAINER_ID> 
+
+docker rm <CONTAINER_ID> 
+``` 
 
 Now you are ready to run docker compose. 
 ```bash 
